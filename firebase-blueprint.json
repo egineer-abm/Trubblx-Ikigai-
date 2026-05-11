@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and metadata",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "IkigaiSession": {
+      "title": "Ikigai Session",
+      "description": "A single journey to find Ikigai",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "completed"] },
+        "currentPillar": { "type": "string", "enum": ["passion", "mission", "vocation", "profession", "done"] },
+        "answers": {
+          "type": "object",
+          "properties": {
+            "whatYouLove": { "type": "array", "items": { "type": "string" } },
+            "whatYouAreGoodAt": { "type": "array", "items": { "type": "string" } },
+            "whatTheWorldNeeds": { "type": "array", "items": { "type": "string" } },
+            "whatYouCanBePaidFor": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "finalAnalysis": {
+          "type": "object",
+          "properties": {
+            "passion": { "type": "string" },
+            "mission": { "type": "string" },
+            "vocation": { "type": "string" },
+            "profession": { "type": "string" },
+            "ikigai": { "type": "string" },
+            "summary": { "type": "string" },
+            "recommendations": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "status", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A message in the AI conversation",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "model", "system"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["role", "content", "timestamp"]
+    },
+    "JournalEntry": {
+      "title": "Journal Entry",
+      "description": "A user's personal reflection or thought",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/sessions/{sessionId}": {
+      "schema": "IkigaiSession",
+      "description": "Ikigai finding sessions"
+    },
+    "/sessions/{sessionId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat log for a session"
+    },
+    "/sessions/{sessionId}/journal/{entryId}": {
+      "schema": "JournalEntry",
+      "description": "User's personal journal for the session"
+    }
+  }
+}

@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // -------------------------------------------------------------------------
+    // GLOBAL HELPERS
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    // -------------------------------------------------------------------------
+    // ENTITY VALIDATIONS
+    // -------------------------------------------------------------------------
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 5
+        && data.uid == request.auth.uid
+        && data.email is string
+        && data.displayName is string
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isValidSession(data) {
+      return data.keys().hasAll(['userId', 'status', 'currentPillar', 'answers', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && data.status in ['active', 'completed']
+        && data.currentPillar in ['passion', 'mission', 'vocation', 'profession', 'done']
+        && data.answers is map
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['role', 'content', 'timestamp'])
+        && data.keys().size() == 3
+        && data.role in ['user', 'model', 'system']
+        && data.content is string
+        && data.content.size() <= 10000
+        && data.timestamp == request.time;
+    }
+
+    function isValidJournalEntry(data) {
+      return data.keys().hasAll(['content', 'timestamp'])
+        && data.keys().size() == 2
+        && data.content is string
+        && data.content.size() <= 10000
+        && data.timestamp == request.time;
+    }
+
+    // -------------------------------------------------------------------------
+    // CATCH-ALL DENY
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // CONNECTION TEST
+    // -------------------------------------------------------------------------
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // -------------------------------------------------------------------------
+    // USER PROFILES
+    // -------------------------------------------------------------------------
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt'])
+        && incoming().updatedAt == request.time;
+    }
+
+    // -------------------------------------------------------------------------
+    // SESSIONS
+    // -------------------------------------------------------------------------
+    match /sessions/{sessionId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isSignedIn() 
+        && isValidId(sessionId)
+        && isValidSession(incoming())
+        && incoming().createdAt == request.time;
+
+      allow update: if isSignedIn() 
+        && existing().userId == request.auth.uid
+        && isValidSession(incoming())
+        && (
+          // Terminal state lock: No updates if already completed, except maybe the finalAnalysis set once
+          (existing().status != 'completed') || 
+          (existing().status == 'completed' && !existing().keys().hasAll(['finalAnalysis']) && incoming().keys().hasAll(['finalAnalysis']))
+        )
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt;
+
+      // MESSAGES (Subcollection)
+      match /messages/{messageId} {
+        // Parent gate
+        function canAccessParent() {
+          return get(/databases/$(database)/documents/sessions/$(sessionId)).data.userId == request.auth.uid;
+        }
+
+        allow list, get: if isSignedIn() && canAccessParent();
+        allow create: if isSignedIn() && canAccessParent() && isValidMessage(incoming());
+      }
+
+      // JOURNAL (Subcollection)
+      match /journal/{entryId} {
+        function canAccessParent() {
+          return get(/databases/$(database)/documents/sessions/$(sessionId)).data.userId == request.auth.uid;
+        }
+
+        allow list, get: if isSignedIn() && canAccessParent();
+        allow create: if isSignedIn() && canAccessParent() && isValidJournalEntry(incoming());
+        allow update: if isSignedIn() && canAccessParent() && isValidJournalEntry(incoming());
+        allow delete: if isSignedIn() && canAccessParent();
+      }
+    }
+  }
+}
