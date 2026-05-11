@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+const apiKey = (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || import.meta.env.VITE_GEMINI_API_KEY;
+const ai = new GoogleGenAI({ apiKey: apiKey as string });
 
 export const SYSTEM_PROMPT = `You are a Japanese Ikigai Master and Life Purpose Coach. 
 Your goal is to guide the user through a journey of self-discovery to find their Ikigai (their "reason for being").

@@ -15,7 +15,14 @@ import {
   LogOut,
   Flower2,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Twitter,
+  Linkedin,
+  Facebook,
+  Link as LinkIcon,
+  Share2,
+  Save,
+  Check
 } from "lucide-react";
 import { 
   auth, 
@@ -63,7 +70,33 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
   const [showJournal, setShowJournal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [sharedSession, setSharedSession] = useState<IkigaiSession | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [recommendationFilter, setRecommendationFilter] = useState<'all' | 'remote' | 'creative' | 'social' | 'entrepreneurship'>('all');
+
+  // Share Link Handler
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareId = urlParams.get('share');
+    if (shareId) {
+      const fetchSharedSession = async () => {
+        try {
+          const docRef = doc(db, 'sessions', shareId);
+          const snap = await getDoc(docRef);
+          if (snap.exists() && snap.data().isPublic) {
+            const data = { id: snap.id, ...snap.data() } as IkigaiSession;
+            setSharedSession(data);
+            setActiveSession(data);
+            setView('session');
+          }
+        } catch (error) {
+          console.error("Error fetching shared session:", error);
+        }
+      };
+      fetchSharedSession();
+    }
+  }, []);
 
   // Auth Listener
   useEffect(() => {
@@ -116,7 +149,9 @@ export default function App() {
 
   // Messages Listener
   useEffect(() => {
-    if (!activeSession) return;
+    if (!activeSession || (sharedSession && sharedSession.id === activeSession.id && !user)) return;
+    if (sharedSession && sharedSession.id === activeSession.id && user?.uid !== activeSession.userId) return;
+    
     const q = query(
       collection(db, `sessions/${activeSession.id}/messages`),
       orderBy("timestamp", "asc")
@@ -167,7 +202,23 @@ export default function App() {
     }
   };
 
+  const handleManualSave = async () => {
+    if (!activeSession || sharedSession) return;
+    setSaveStatus('saving');
+    try {
+      await updateDoc(doc(db, "sessions", activeSession.id), {
+        updatedAt: serverTimestamp()
+      });
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (error) {
+      console.error("Save failed:", error);
+      setSaveStatus('idle');
+    }
+  };
+
   const sendMessageToAI = async (sessionId: string, text: string, isInitial = false) => {
+    if (sharedSession) return; // Read-only for shared sessions
     setIsTyping(true);
     try {
       if (!isInitial) {
@@ -538,19 +589,47 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-2">
+                    {!sharedSession && (
+                      <>
+                        <button 
+                          onClick={() => setShowJournal(!showJournal)}
+                          className={`w-full py-4 text-[11px] uppercase tracking-widest font-bold border rounded-full transition-all ${
+                            showJournal ? 'bg-page-text text-white' : 'border-page-text text-page-text hover:bg-page-text/5'
+                          }`}
+                        >
+                          {showJournal ? "Close Journal" : "Private Journal"}
+                        </button>
+                        <button 
+                          onClick={handleManualSave}
+                          disabled={saveStatus !== 'idle'}
+                          className={`w-full py-4 text-[11px] uppercase tracking-widest font-bold border rounded-full transition-all flex items-center justify-center gap-2 ${
+                            saveStatus === 'saved' 
+                              ? 'bg-talent border-talent text-white' 
+                              : 'border-page-text text-page-text hover:bg-page-text/5'
+                          }`}
+                        >
+                          {saveStatus === 'saving' ? (
+                            <span className="animate-pulse">Saving...</span>
+                          ) : saveStatus === 'saved' ? (
+                            <>
+                              <Check size={14} /> Saved
+                            </>
+                          ) : (
+                            <>
+                              <Save size={14} /> Save Progress
+                            </>
+                          )}
+                        </button>
+                      </>
+                    )}
                     <button 
-                      onClick={() => setShowJournal(!showJournal)}
-                      className={`w-full py-4 text-[11px] uppercase tracking-widest font-bold border rounded-full transition-all ${
-                        showJournal ? 'bg-page-text text-white' : 'border-page-text text-page-text hover:bg-page-text/5'
-                      }`}
-                    >
-                      {showJournal ? "Close Journal" : "Private Journal"}
-                    </button>
-                    <button 
-                      onClick={() => setView('home')}
+                      onClick={() => {
+                        setSharedSession(null);
+                        setView('home');
+                      }}
                       className="w-full py-4 text-[11px] uppercase tracking-widest font-bold text-page-text/40 hover:text-page-text transition-all"
                     >
-                      Exit Session
+                      {sharedSession ? "Start Your Journey" : "Exit Session"}
                     </button>
                   </div>
                 </div>
@@ -560,7 +639,9 @@ export default function App() {
                 {activeSession.status === 'completed' ? (
                   <div className="flex-1 overflow-y-auto p-16 space-y-20">
                     <div className="text-center space-y-6">
-                      <p className="text-[11px] uppercase tracking-[0.4em] font-bold opacity-30 italic">Discovery Complete</p>
+                      <p className="text-[11px] uppercase tracking-[0.4em] font-bold opacity-30 italic">
+                        {sharedSession ? "Shared Discovery" : "Discovery Complete"}
+                      </p>
                       <h2 className="text-7xl font-serif italic text-passion">{activeSession.finalAnalysis?.ikigai}</h2>
                       <div className="h-px w-24 bg-page-text mx-auto opacity-20"></div>
                       <p className="text-xl font-serif italic text-page-text/60 max-w-2xl mx-auto leading-relaxed">
@@ -574,6 +655,23 @@ export default function App() {
                         >
                           Download Sanctuary Doc
                         </button>
+                        {!sharedSession && (
+                          <button 
+                            onClick={async () => {
+                              if (!activeSession.isPublic) {
+                                await updateDoc(doc(db, "sessions", activeSession.id), {
+                                  isPublic: true,
+                                  updatedAt: serverTimestamp()
+                                });
+                              }
+                              setShowShareModal(true);
+                            }}
+                            className="px-6 py-2 bg-passion text-white rounded-full text-[10px] uppercase tracking-widest font-bold hover:scale-105 transition-transform flex items-center gap-2 shadow-lg shadow-passion/20"
+                          >
+                            <Share2 size={12} />
+                            Share Discovery
+                          </button>
+                        )}
                         <button 
                           onClick={() => {
                             const blob = new Blob([JSON.stringify(activeSession, null, 2)], { type: 'application/json' });
@@ -671,6 +769,105 @@ export default function App() {
                   >
                     <Journal sessionId={activeSession.id} />
                   </motion.aside>
+                )}
+              </AnimatePresence>
+
+              {/* Share Modal */}
+              <AnimatePresence>
+                {showShareModal && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-0">
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setShowShareModal(false)}
+                      className="absolute inset-0 bg-page-text/40 backdrop-blur-sm"
+                    />
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden p-10"
+                    >
+                      <div className="text-center space-y-6">
+                        <div className="mx-auto w-16 h-16 bg-passion/10 rounded-full flex items-center justify-center text-passion">
+                          <Share2 size={32} />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-serif italic mb-2">Share Your Ikigai</h3>
+                          <p className="text-xs uppercase tracking-widest font-bold opacity-30">Let the world see your resonance</p>
+                        </div>
+
+                        <div className="flex justify-center gap-4 py-4">
+                          {[
+                            { 
+                              icon: <Twitter size={20} />, 
+                              label: "Twitter", 
+                              color: "bg-[#1DA1F2]",
+                              onClick: () => {
+                                const text = `I just discovered my Ikigai: ${activeSession.finalAnalysis?.ikigai} 🌸 Find your reason for being at Trubblx.`;
+                                const url = `${window.location.origin}${window.location.pathname}?share=${activeSession.id}`;
+                                window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+                              }
+                            },
+                            { 
+                              icon: <Linkedin size={20} />, 
+                              label: "LinkedIn", 
+                              color: "bg-[#0A66C2]",
+                              onClick: () => {
+                                const url = `${window.location.origin}${window.location.pathname}?share=${activeSession.id}`;
+                                window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank');
+                              }
+                            },
+                            { 
+                              icon: <Facebook size={20} />, 
+                              label: "Facebook", 
+                              color: "bg-[#1877F2]",
+                              onClick: () => {
+                                const url = `${window.location.origin}${window.location.pathname}?share=${activeSession.id}`;
+                                window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+                              }
+                            }
+                          ].map((social) => (
+                            <button 
+                              key={social.label}
+                              onClick={social.onClick}
+                              className={`w-12 h-12 rounded-2xl ${social.color} text-white flex items-center justify-center hover:scale-110 transition-transform shadow-lg`}
+                              title={`Share on ${social.label}`}
+                            >
+                              {social.icon}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="space-y-3">
+                          <p className="text-[10px] uppercase tracking-widest font-bold opacity-30">Or copy direct link</p>
+                          <div className="flex items-center gap-2 p-2 bg-page-bg/50 rounded-xl border border-page-border">
+                            <input 
+                              readOnly 
+                              value={`${window.location.origin}${window.location.pathname}?share=${activeSession.id}`}
+                              className="bg-transparent text-[10px] flex-1 px-2 border-none focus:ring-0 overflow-hidden text-ellipsis whitespace-nowrap"
+                            />
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?share=${activeSession.id}`);
+                              }}
+                              className="p-2 bg-white rounded-lg shadow-sm hover:bg-page-bg transition-all"
+                            >
+                              <LinkIcon size={14} className="text-page-text" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={() => setShowShareModal(false)}
+                          className="w-full py-4 text-[11px] uppercase tracking-widest font-bold text-page-text/40 hover:text-page-text transition-all"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
                 )}
               </AnimatePresence>
             </motion.div>

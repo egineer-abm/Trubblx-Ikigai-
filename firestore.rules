@@ -49,7 +49,8 @@ service cloud.firestore {
         && data.currentPillar in ['passion', 'mission', 'vocation', 'profession', 'done']
         && data.answers is map
         && data.createdAt is timestamp
-        && data.updatedAt == request.time;
+        && data.updatedAt == request.time
+        && (!data.keys().hasAll(['isPublic']) || data.isPublic is bool);
     }
 
     function isValidMessage(data) {
@@ -98,7 +99,7 @@ service cloud.firestore {
     // SESSIONS
     // -------------------------------------------------------------------------
     match /sessions/{sessionId} {
-      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow get: if (isSignedIn() && existing().userId == request.auth.uid) || (existing().get('isPublic', false) == true);
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       
       allow create: if isSignedIn() 
@@ -110,9 +111,10 @@ service cloud.firestore {
         && existing().userId == request.auth.uid
         && isValidSession(incoming())
         && (
-          // Terminal state lock: No updates if already completed, except maybe the finalAnalysis set once
+          // Terminal state lock: No updates if already completed, except maybe the finalAnalysis set once or isPublic set
           (existing().status != 'completed') || 
-          (existing().status == 'completed' && !existing().keys().hasAll(['finalAnalysis']) && incoming().keys().hasAll(['finalAnalysis']))
+          (existing().status == 'completed' && !existing().keys().hasAll(['finalAnalysis']) && incoming().keys().hasAll(['finalAnalysis'])) ||
+          (existing().status == 'completed' && incoming().diff(existing()).affectedKeys().hasOnly(['isPublic', 'updatedAt']))
         )
         && incoming().userId == existing().userId
         && incoming().createdAt == existing().createdAt;

@@ -36,6 +36,7 @@ export interface IkigaiSession {
   completedPillars: string[];
   pillarCompletionDates?: Record<string, any>;
   finalAnalysis?: FinalAnalysis;
+  isPublic?: boolean;
   createdAt: any;
   updatedAt: any;
 }
