@@ -4,7 +4,12 @@ export const downloadDiscoveryAsHTML = (session: IkigaiSession) => {
   if (!session.finalAnalysis) return;
 
   const { finalAnalysis, answers } = session;
-  const date = new Date((session.updatedAt?.seconds || 0) * 1000).toLocaleDateString();
+  const updatedAtSeconds = session.updatedAt?.seconds || (Date.now() / 1000);
+  const date = new Date(updatedAtSeconds * 1000).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  });
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -12,385 +17,450 @@ export const downloadDiscoveryAsHTML = (session: IkigaiSession) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Ikigai Discovery - ${finalAnalysis.ikigai}</title>
+    <title>Ikigai Discovery Report | ${finalAnalysis.ikigai}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --passion: #E63946;
-            --mission: #457B9D;
-            --vocation: #1D3557;
-            --talent: #2A9D8F;
-            --bg: #FAFAF9;
-            --text: #2D2926;
-            --border: #E5E7EB;
+            --passion: #E89E8A;
+            --talent: #A8BCA1;
+            --mission: #A5C6D1;
+            --vocation: #E2C38F;
+            --text-dark: #2D2926;
+            --text-muted: #6B7280;
+            --bg-page: #FDFCFB;
+            --bg-card: #FFFFFF;
+            --border: #F3F4F6;
         }
+
+        * { box-sizing: border-box; }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
+            background-color: var(--bg-page);
+            color: var(--text-dark);
             line-height: 1.6;
             margin: 0;
             padding: 0;
-            -webkit-print-color-adjust: exact;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 80px 40px;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 80px;
-            padding-bottom: 60px;
+        .document-wrapper {
+            max-width: 900px;
+            margin: 40px auto;
+            background: var(--bg-card);
+            box-shadow: 0 40px 100px rgba(0,0,0,0.05);
+            border-radius: 40px;
+            overflow: hidden;
             position: relative;
         }
 
-        .logo-container {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 40px;
+        .hero-header {
+            padding: 100px 80px 60px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(to bottom, #FFF, var(--bg-page));
         }
 
-        .logo {
-            height: 60px;
-            width: auto;
+        .logo-mark {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-style: italic;
+            font-size: 24px;
+            color: var(--text-dark);
+            margin-bottom: 60px;
+            letter-spacing: -0.02em;
+            display: inline-block;
         }
 
-        .date {
+        .meta-stamp {
             font-size: 10px;
             text-transform: uppercase;
-            letter-spacing: 0.3em;
-            font-weight: bold;
-            opacity: 0.4;
-            margin-bottom: 24px;
+            letter-spacing: 0.4em;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 30px;
             display: block;
         }
 
-        h1 {
+        h1.ikigai-title {
             font-family: 'Playfair Display', serif;
-            font-size: 64px;
-            font-style: italic;
+            font-size: 84px;
+            line-height: 1;
             margin: 0;
-            color: var(--text);
-            line-height: 1.1;
-            letter-spacing: -0.02em;
-        }
-
-        .summary {
-            font-family: 'Playfair Display', serif;
-            font-size: 24px;
             font-style: italic;
-            color: rgba(45, 41, 38, 0.6);
-            margin-top: 32px;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-            line-height: 1.4;
+            letter-spacing: -0.04em;
+            color: var(--text-dark);
         }
 
-        .diagram-section {
-            margin: 100px 0;
+        .summary-block {
+            margin: 40px auto 0;
+            max-width: 600px;
+            font-family: 'Playfair Display', serif;
+            font-size: 22px;
+            line-height: 1.5;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .content-section {
+            padding: 80px;
+        }
+
+        .visual-discovery {
+            display: flex;
+            align-items: center;
+            gap: 60px;
+            margin-bottom: 100px;
+        }
+
+        .diagram-container {
+            flex: 1;
+            background: #FAFAF9;
+            padding: 40px;
+            border-radius: 40px;
             display: flex;
             justify-content: center;
-            background: white;
-            padding: 60px;
-            border-radius: 40px;
-            border: 1px solid var(--border);
+            align-items: center;
         }
 
         .diagram-svg {
-            max-width: 500px;
             width: 100%;
             height: auto;
+            max-width: 400px;
         }
 
-        .grid {
+        .foundation-grid {
+            flex: 1;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            margin-bottom: 80px;
+            grid-template-columns: 1fr;
+            gap: 16px;
         }
 
         .pillar-card {
-            padding: 40px;
-            background: white;
-            border-radius: 32px;
+            padding: 24px;
+            border-radius: 20px;
             border: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 4px;
         }
 
         .pillar-label {
             font-size: 9px;
+            font-weight: 700;
             text-transform: uppercase;
-            font-weight: bold;
-            letter-spacing: 0.25em;
-            opacity: 0.4;
+            letter-spacing: 0.2em;
+            color: var(--text-muted);
         }
 
         .pillar-val {
             font-family: 'Playfair Display', serif;
+            font-size: 16px;
             font-style: italic;
-            font-size: 20px;
             margin: 0;
             line-height: 1.4;
         }
 
-        .section-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 32px;
-            font-style: italic;
+        .section-header {
             margin-bottom: 40px;
-            display: block;
-            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
 
-        .answers-section {
-            padding: 80px 0;
-            border-top: 1px solid var(--border);
+        .section-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-style: italic;
+            margin: 0;
+            white-space: nowrap;
         }
 
-        .answers-grid {
+        .section-header .line {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .discovery-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 48px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 40px;
+            margin-bottom: 80px;
         }
 
-        .answer-group h4 {
-            font-size: 10px;
+        .reflection-card {
+            background: #FFF;
+        }
+
+        .reflection-card h4 {
+            font-size: 11px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: 16px;
-            opacity: 0.5;
+            letter-spacing: 0.15em;
+            margin-bottom: 20px;
+            color: var(--text-muted);
         }
 
-        .answer-list {
+        .reflection-list {
             padding: 0;
             list-style: none;
             margin: 0;
         }
 
-        .answer-list li {
-            margin-bottom: 12px;
-            padding-left: 16px;
-            border-left: 2px solid var(--border);
-            font-family: 'Playfair Display', serif;
-            font-style: italic;
-            font-size: 16px;
-        }
-
-        .recommendations {
-            padding: 80px 0;
-            border-top: 1px solid var(--border);
-        }
-
-        .rec-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 32px;
-        }
-
-        .rec-card {
-            padding: 32px;
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 24px;
-        }
-
-        .rec-cat {
-            font-size: 9px;
-            text-transform: uppercase;
-            font-weight: bold;
-            color: var(--passion);
-            letter-spacing: 0.1em;
-            margin-bottom: 12px;
-            display: block;
-        }
-
-        .rec-text {
+        .reflection-list li {
             font-family: 'Playfair Display', serif;
             font-style: italic;
             font-size: 18px;
-            margin: 0;
-            line-height: 1.4;
+            margin-bottom: 12px;
+            padding-left: 20px;
+            position: relative;
+            color: var(--text-dark);
         }
 
-        .philosophy {
-            margin-top: 120px;
+        .reflection-list li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 10px;
+            width: 4px;
+            height: 4px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            opacity: 0.3;
+        }
+
+        .pathway-section {
+            background: #FAFAF9;
             padding: 60px;
-            background: var(--vocation);
-            color: white;
-            border-radius: 40px;
+            border-radius: 32px;
+            margin-bottom: 80px;
+        }
+
+        .pathway-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        .pathway-item {
             display: flex;
-            gap: 60px;
-            align-items: center;
+            gap: 24px;
+            align-items: flex-start;
         }
 
-        .philosophy-text {
-            flex: 1;
-        }
-
-        .philosophy-text h3 {
+        .pathway-num {
             font-family: 'Playfair Display', serif;
-            font-size: 28px;
-            margin-top: 0;
-            margin-bottom: 16px;
+            font-size: 32px;
+            font-style: italic;
+            color: var(--passion);
+            opacity: 0.4;
+            line-height: 1;
+            padding-top: 4px;
         }
 
-        .philosophy-text p {
-            font-size: 14px;
-            opacity: 0.7;
+        .pathway-content b {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+
+        .pathway-content p {
             margin: 0;
+            font-family: 'Playfair Display', serif;
+            font-size: 18px;
+            font-style: italic;
+            color: var(--text-dark);
         }
 
-        .footer {
+        .footer-note {
             text-align: center;
+            padding: 60px 80px;
+            background: var(--text-dark);
+            color: #FFF;
+        }
+
+        .footer-note p {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-size: 18px;
+            max-width: 500px;
+            margin: 0 auto 30px;
+            opacity: 0.8;
+        }
+
+        .footer-meta {
             font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.4em;
-            opacity: 0.3;
-            margin-top: 120px;
-            padding-bottom: 40px;
+            opacity: 0.4;
         }
 
         @media print {
-            .container { padding: 20px; max-width: 100%; }
             body { background: white; }
-            .philosophy { background: #f3f4f6; color: black; }
+            .document-wrapper { 
+                box-shadow: none; 
+                margin: 0;
+                border-radius: 0;
+                max-width: 100%;
+            }
+            .hero-header { padding: 40px; }
+            .content-section { padding: 40px; }
+            .visual-discovery { flex-direction: column; }
+            .footer-note { background: white; color: black; border-top: 1px solid var(--border); }
+        }
+
+        @media (max-width: 768px) {
+            .hero-header { padding: 60px 30px; }
+            h1.ikigai-title { font-size: 48px; }
+            .content-section { padding: 30px; }
+            .visual-discovery { flex-direction: column; }
+            .discovery-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="logo-container">
-                <img src="/Trubblx_transparent.png" alt="Trubblx Logo" class="logo">
+    <div class="document-wrapper">
+        <header class="hero-header">
+            <div class="logo-mark">Trubblx Sanctuary</div>
+            <span class="meta-stamp">Purpose Blueprint • ${date}</span>
+            <h1 class="ikigai-title">${finalAnalysis.ikigai}</h1>
+            <div class="summary-block">
+                "${finalAnalysis.summary}"
             </div>
-            <span class="date">Trubblx discovery • ${date}</span>
-            <h1>${finalAnalysis.ikigai}</h1>
-            <p class="summary">"${finalAnalysis.summary}"</p>
         </header>
 
-        <div class="diagram-section">
-            <svg viewBox="-160 -120 320 320" class="diagram-svg">
-                <!-- Foundations -->
-                <circle cx="0" cy="-45" r="85" fill="rgba(232, 158, 138, 0.15)" stroke="#E89E8A" stroke-width="0.5" />
-                <circle cx="-55" cy="35" r="85" fill="rgba(168, 188, 161, 0.15)" stroke="#A8BCA1" stroke-width="0.5" />
-                <circle cx="55" cy="35" r="85" fill="rgba(165, 198, 209, 0.15)" stroke="#A5C6D1" stroke-width="0.5" />
-                <circle cx="0" cy="115" r="85" fill="rgba(226, 195, 143, 0.15)" stroke="#E2C38F" stroke-width="0.5" />
+        <main class="content-section">
+            <div class="visual-discovery">
+                <div class="diagram-container">
+                    <svg viewBox="-160 -120 320 320" class="diagram-svg">
+                        <defs>
+                            <radialGradient id="grad-passion" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#E89E8A" stop-opacity="0.2" />
+                                <stop offset="100%" stop-color="#E89E8A" stop-opacity="0.05" />
+                            </radialGradient>
+                            <radialGradient id="grad-talent" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#A8BCA1" stop-opacity="0.2" />
+                                <stop offset="100%" stop-color="#A8BCA1" stop-opacity="0.05" />
+                            </radialGradient>
+                            <radialGradient id="grad-mission" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#A5C6D1" stop-opacity="0.2" />
+                                <stop offset="100%" stop-color="#A5C6D1" stop-opacity="0.05" />
+                            </radialGradient>
+                            <radialGradient id="grad-vocation" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#E2C38F" stop-opacity="0.2" />
+                                <stop offset="100%" stop-color="#E2C38F" stop-opacity="0.05" />
+                            </radialGradient>
+                        </defs>
+                        
+                        <!-- Circles -->
+                        <circle cx="0" cy="-45" r="90" fill="url(#grad-passion)" stroke="#E89E8A" stroke-width="0.5" stroke-dasharray="2,2" />
+                        <circle cx="-55" cy="35" r="90" fill="url(#grad-talent)" stroke="#A8BCA1" stroke-width="0.5" stroke-dasharray="2,2" />
+                        <circle cx="55" cy="35" r="90" fill="url(#grad-mission)" stroke="#A5C6D1" stroke-width="0.5" stroke-dasharray="2,2" />
+                        <circle cx="0" cy="115" r="90" fill="url(#grad-vocation)" stroke="#E2C38F" stroke-width="0.5" stroke-dasharray="2,2" />
+                        
+                        <!-- Core -->
+                        <rect x="-40" y="22" width="80" height="26" fill="#2D2926" rx="13" />
+                        <text x="0" y="38" text-anchor="middle" font-family="Inter" font-size="8" font-weight="700" letter-spacing="3" fill="#FFFFFF">IKIGAI</text>
+                        
+                        <!-- Context Labels -->
+                        <g font-family="Playfair Display" font-style="italic" font-size="8" fill="#2D2926" text-anchor="middle" opacity="0.6">
+                            <text x="-38" y="-5">Passion</text>
+                            <text x="38" y="-5">Mission</text>
+                            <text x="38" y="80">Vocation</text>
+                            <text x="-38" y="80">Profession</text>
+                        </g>
+
+                        <g font-family="Inter" font-size="6" font-weight="700" fill="#2D2926" text-anchor="middle" letter-spacing="1" opacity="0.3">
+                            <text x="0" y="-105">LOVE</text>
+                            <text x="-120" y="38">TALENT</text>
+                            <text x="120" y="38">NEED</text>
+                            <text x="0" y="180">PAID</text>
+                        </g>
+                    </svg>
+                </div>
                 
-                <!-- Center Piece -->
-                <rect x="-35" y="25" width="70" height="20" fill="#2D2926" />
-                <text x="0" y="38" text-anchor="middle" font-family="Inter" font-size="8" font-weight="bold" letter-spacing="2" fill="white">IKIGAI</text>
-                
-                <!-- Foundation Labels -->
-                <g font-family="Inter" font-size="6" font-weight="bold" fill="rgba(45, 41, 38, 0.3)" text-anchor="middle" style="text-transform: uppercase;">
-                    <text x="0" y="-55">What You Love</text>
-                    <text x="-55" y="35">Talent</text>
-                    <text x="55" y="35">Need</text>
-                    <text x="0" y="125">Paid</text>
-                </g>
-
-                <!-- Intersection Labels -->
-                <g font-family="Playfair Display" font-style="italic" font-size="7" fill="#2D2926" text-anchor="middle">
-                    <text x="-32" y="-5">Passion</text>
-                    <text x="32" y="-5">Mission</text>
-                    <text x="32" y="75">Vocation</text>
-                    <text x="-32" y="75">Profession</text>
-                </g>
-            </svg>
-        </div>
-
-        <section>
-            <h2 class="section-title">The Four Pillars</h2>
-            <div class="grid">
-                <div class="pillar-card" style="border-left: 6px solid var(--passion)">
-                    <span class="pillar-label">Passion</span>
-                    <p class="pillar-val">"${finalAnalysis.passion}"</p>
-                </div>
-                <div class="pillar-card" style="border-left: 6px solid var(--mission)">
-                    <span class="pillar-label">Mission</span>
-                    <p class="pillar-val">"${finalAnalysis.mission}"</p>
-                </div>
-                <div class="pillar-card" style="border-left: 6px solid var(--vocation)">
-                    <span class="pillar-label">Vocation</span>
-                    <p class="pillar-val">"${finalAnalysis.vocation}"</p>
-                </div>
-                <div class="pillar-card" style="border-left: 6px solid var(--talent)">
-                    <span class="pillar-label">Profession</span>
-                    <p class="pillar-val">"${finalAnalysis.profession}"</p>
-                </div>
-            </div>
-        </section>
-
-        <section class="answers-section">
-            <h2 class="section-title">Core Reflections</h2>
-            <div class="answers-grid">
-                <div class="answer-group">
-                   <h4>What You Love</h4>
-                   <ul class="answer-list">
-                       ${answers.whatYouLove.map(a => `<li>${a}</li>`).join('')}
-                   </ul>
-                </div>
-                <div class="answer-group">
-                   <h4>What You're Good At</h4>
-                   <ul class="answer-list">
-                       ${answers.whatYouAreGoodAt.map(a => `<li>${a}</li>`).join('')}
-                   </ul>
-                </div>
-                <div class="answer-group">
-                   <h4>What the World Needs</h4>
-                   <ul class="answer-list">
-                       ${answers.whatTheWorldNeeds.map(a => `<li>${a}</li>`).join('')}
-                   </ul>
-                </div>
-                <div class="answer-group">
-                   <h4>Economic Value</h4>
-                   <ul class="answer-list">
-                       ${answers.whatYouCanBePaidFor.map(a => `<li>${a}</li>`).join('')}
-                   </ul>
-                </div>
-            </div>
-        </section>
-
-        <section class="recommendations">
-            <h2 class="section-title">Discovery Pathways</h2>
-            <div class="rec-grid">
-                ${finalAnalysis.recommendations.map(r => `
-                    <div class="rec-card">
-                        <span class="rec-cat">${r.category}</span>
-                        <p class="rec-text">${r.text}</p>
+                <div class="foundation-grid">
+                    <div class="pillar-card" style="border-left: 4px solid var(--passion)">
+                        <span class="pillar-label">Passion</span>
+                        <p class="pillar-val">"${finalAnalysis.passion}"</p>
                     </div>
-                `).join('')}
-            </div>
-        </section>
-
-        <section class="philosophy">
-            <div class="philosophy-text">
-                <h3>The Ikigai Philosophy</h3>
-                <p>Ikigai is the Japanese concept of finding your "reason for being." It represents a lifestyle that strives to balance the spiritual with the practical. This discovery is not a final destination, but a starting point for a more intentional existence.</p>
-            </div>
-            <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; font-size: 11px; opacity: 0.8;">
-                <div>
-                    <strong style="display: block; margin-bottom: 4px; font-size: 9px; text-transform: uppercase;">Spirit</strong>
-                    Passion & Mission drive your inner fulfillment and your alignment with humanity.
-                </div>
-                <div>
-                    <strong style="display: block; margin-bottom: 4px; font-size: 9px; text-transform: uppercase;">Structure</strong>
-                    Vocation & Profession provide the practical framework for your talent to thrive.
+                    <div class="pillar-card" style="border-left: 4px solid var(--mission)">
+                        <span class="pillar-label">Mission</span>
+                        <p class="pillar-val">"${finalAnalysis.mission}"</p>
+                    </div>
+                    <div class="pillar-card" style="border-left: 4px solid var(--vocation)">
+                        <span class="pillar-label">Vocation</span>
+                        <p class="pillar-val">"${finalAnalysis.vocation}"</p>
+                    </div>
+                    <div class="pillar-card" style="border-left: 4px solid var(--talent)">
+                        <span class="pillar-label">Talent</span>
+                        <p class="pillar-val">"${finalAnalysis.profession}"</p>
+                    </div>
                 </div>
             </div>
-        </section>
 
-        <div class="footer">
-            Trubblx Ikigai Sanctuary • Sanctuary Discovery Report
-        </div>
+            <div class="section-header">
+                <h2>Discovery Pathways</h2>
+                <div class="line"></div>
+            </div>
+
+            <section class="pathway-section">
+                <div class="pathway-list">
+                    ${finalAnalysis.recommendations.map((r, i) => `
+                        <div class="pathway-item">
+                            <div class="pathway-num">0${i + 1}</div>
+                            <div class="pathway-content">
+                                <b>${r.category}</b>
+                                <p>${r.text}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </section>
+
+            <div class="section-header">
+                <h2>The Substratum</h2>
+                <div class="line"></div>
+            </div>
+
+            <div class="discovery-grid">
+                <div class="reflection-card">
+                    <h4>Internal Fires</h4>
+                    <ul class="reflection-list">
+                        ${answers.whatYouLove.map(a => `<li>${a}</li>`).join('')}
+                    </ul>
+                </div>
+                <div class="reflection-card">
+                    <h4>Technical Shadows</h4>
+                    <ul class="reflection-list">
+                        ${answers.whatYouAreGoodAt.map(a => `<li>${a}</li>`).join('')}
+                    </ul>
+                </div>
+                <div class="reflection-card">
+                    <h4>Worldly Cracks</h4>
+                    <ul class="reflection-list">
+                        ${answers.whatTheWorldNeeds.map(a => `<li>${a}</li>`).join('')}
+                    </ul>
+                </div>
+                <div class="reflection-card">
+                    <h4>Sustaining Forms</h4>
+                    <ul class="reflection-list">
+                        ${answers.whatYouCanBePaidFor.map(a => `<li>${a}</li>`).join('')}
+                    </ul>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer-note">
+            <p>Your Ikigai is not a static destination, but a living frequency. Let this document be a reminder of your true center as you navigate the noise of existence.</p>
+            <div class="footer-meta">TRUBBLX IKIGAI SANCTUARY • ARCHIVAL REPORT</div>
+        </footer>
     </div>
 </body>
 </html>
@@ -400,7 +470,7 @@ export const downloadDiscoveryAsHTML = (session: IkigaiSession) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `my-ikigai-discovery-${finalAnalysis.ikigai.toLowerCase().replace(/\s+/g, '-')}.html`;
+  a.download = `ikigai-discovery-${finalAnalysis.ikigai.toLowerCase().replace(/\s+/g, '-')}.html`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

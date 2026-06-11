@@ -58,6 +58,7 @@ import ChatInterface from "./components/ChatInterface";
 import IkigaiDiagram from "./components/IkigaiDiagram";
 import Journal from "./components/Journal";
 import Guide from "./components/Guide";
+import IkigaiExposition from "./components/IkigaiExposition";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -215,6 +216,67 @@ export default function App() {
       console.error("Save failed:", error);
       setSaveStatus('idle');
     }
+  };
+
+  const updateSessionAnswers = async (updatedAnswers: Answers) => {
+    if (!activeSession) return;
+    const updated = {
+      ...activeSession,
+      answers: updatedAnswers,
+      updatedAt: new Date()
+    };
+    setActiveSession(updated);
+
+    try {
+      await updateDoc(doc(db, "sessions", activeSession.id), {
+        answers: updatedAnswers,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Error updating answers:", error);
+    }
+  };
+
+  const handleAddAnswer = async (pillar: string, item: string) => {
+    if (!activeSession || !item.trim()) return;
+    const pillarMap: Record<string, keyof Answers> = {
+      'passion': 'whatYouLove',
+      'mission': 'whatTheWorldNeeds',
+      'vocation': 'whatYouCanBePaidFor',
+      'profession': 'whatYouAreGoodAt'
+    };
+    const answerKey = pillarMap[pillar];
+    if (!answerKey) return;
+
+    const currentAnswers = activeSession.answers[answerKey] || [];
+    if (currentAnswers.includes(item.trim())) return;
+
+    const updatedAnswers = {
+      ...activeSession.answers,
+      [answerKey]: [...currentAnswers, item.trim()]
+    };
+
+    await updateSessionAnswers(updatedAnswers);
+  };
+
+  const handleRemoveAnswer = async (pillar: string, index: number) => {
+    if (!activeSession) return;
+    const pillarMap: Record<string, keyof Answers> = {
+      'passion': 'whatYouLove',
+      'mission': 'whatTheWorldNeeds',
+      'vocation': 'whatYouCanBePaidFor',
+      'profession': 'whatYouAreGoodAt'
+    };
+    const answerKey = pillarMap[pillar];
+    if (!answerKey) return;
+
+    const currentAnswers = activeSession.answers[answerKey] || [];
+    const updatedAnswers = {
+      ...activeSession.answers,
+      [answerKey]: currentAnswers.filter((_, i) => i !== index)
+    };
+
+    await updateSessionAnswers(updatedAnswers);
   };
 
   const sendMessageToAI = async (sessionId: string, text: string, isInitial = false) => {
@@ -554,6 +616,80 @@ export default function App() {
                   })}
                 </div>
 
+                {/* Active Questionnaire Answers Management */}
+                {activeSession.currentPillar !== 'done' && (
+                  <div className="mt-6 p-4 rounded-2xl border border-page-border bg-white shadow-3sm space-y-4">
+                    <div className="flex justify-between items-center bg-white">
+                      <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-page-text/60">Extracted Findings</h4>
+                      <span className="text-[9px] font-mono font-bold px-2 py-0.5 bg-page-bg rounded text-page-text">
+                        {(() => {
+                           const pMap: Record<string, 'whatYouLove' | 'whatYouAreGoodAt' | 'whatTheWorldNeeds' | 'whatYouCanBePaidFor'> = {
+                             'passion': 'whatYouLove',
+                             'mission': 'whatTheWorldNeeds',
+                             'vocation': 'whatYouCanBePaidFor',
+                             'profession': 'whatYouAreGoodAt'
+                           };
+                           const key = pMap[activeSession.currentPillar];
+                           return (activeSession.answers?.[key] || []).length;
+                        })()} items
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {(() => {
+                         const pMap: Record<string, 'whatYouLove' | 'whatYouAreGoodAt' | 'whatTheWorldNeeds' | 'whatYouCanBePaidFor'> = {
+                           'passion': 'whatYouLove',
+                           'mission': 'whatTheWorldNeeds',
+                           'vocation': 'whatYouCanBePaidFor',
+                           'profession': 'whatYouAreGoodAt'
+                         };
+                         const key = pMap[activeSession.currentPillar];
+                         const list = (activeSession.answers?.[key] || []) as string[];
+                         return list.map((ans, idx) => (
+                           <div key={idx} className="flex justify-between items-center p-2 bg-page-bg border border-page-border/50 rounded-xl text-xs font-serif italic text-page-text/80 hover:bg-page-bg/80 transition-all">
+                             <span className="truncate flex-1 pr-2">"{ans}"</span>
+                             <button 
+                               onClick={() => handleRemoveAnswer(activeSession.currentPillar, idx)}
+                               className="text-page-text/40 hover:text-red-500 font-sans font-bold text-sm leading-none px-1"
+                               title="Remove finding"
+                             >
+                               &times;
+                             </button>
+                           </div>
+                         ));
+                      })()}
+                      {(() => {
+                         const pMap: Record<string, 'whatYouLove' | 'whatYouAreGoodAt' | 'whatTheWorldNeeds' | 'whatYouCanBePaidFor'> = {
+                           'passion': 'whatYouLove',
+                           'mission': 'whatTheWorldNeeds',
+                           'vocation': 'whatYouCanBePaidFor',
+                           'profession': 'whatYouAreGoodAt'
+                         };
+                         const key = pMap[activeSession.currentPillar];
+                         return (activeSession.answers?.[key] || []).length === 0 && (
+                           <p className="text-[10px] italic opacity-40 py-4 text-center">No findings captured yet. Type in chat or add directly below.</p>
+                         );
+                      })()}
+                    </div>
+
+                    {/* Manual additions */}
+                    <input 
+                      type="text"
+                      placeholder={`Press Enter to add finding...`}
+                      className="w-full bg-page-bg text-xs px-3 py-2 rounded-xl focus:outline-none focus:ring-[0.5px] focus:ring-page-text font-serif italic placeholder:opacity-40 border border-transparent"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const val = (e.currentTarget as HTMLInputElement).value;
+                          if (val.trim()) {
+                            handleAddAnswer(activeSession.currentPillar, val);
+                            (e.currentTarget as HTMLInputElement).value = "";
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
                 <div className="mt-auto pt-6 lg:pt-8 border-t border-page-border hidden lg:block">
                   <div className="bg-[#F5F2ED] p-6 rounded-2xl border border-[#EDE9E1] mb-6">
                     <div className="flex items-start gap-4">
@@ -705,6 +841,11 @@ export default function App() {
                           <p className="text-sm font-medium leading-relaxed italic">"{item.val}"</p>
                         </div>
                       ))}
+                    </div>
+
+                    {/* Highly Interactive Intersection Map and Purpose Exposition */}
+                    <div className="pt-8 border-t border-page-border/40">
+                      <IkigaiExposition data={activeSession.finalAnalysis} answers={activeSession.answers} />
                     </div>
 
                     <div className="pt-20 border-t border-page-border space-y-12">

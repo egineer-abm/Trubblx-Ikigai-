@@ -1,43 +1,28 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, query, collection, where, orderBy, onSnapshot, getDocFromServer, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-// Fallback config for deployment environments where the JSON file might be ignored or missing
-const envConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID
+import firebaseAppletConfig from '../../firebase-applet-config.json';
+
+// Use the firebase-applet-config.json as primary and system env variables as fallback
+const firebaseConfig = {
+  apiKey: firebaseAppletConfig?.apiKey || import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: firebaseAppletConfig?.authDomain || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: firebaseAppletConfig?.projectId || import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: firebaseAppletConfig?.storageBucket || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: firebaseAppletConfig?.messagingSenderId || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: firebaseAppletConfig?.appId || import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: firebaseAppletConfig?.measurementId || import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  firestoreDatabaseId: firebaseAppletConfig?.firestoreDatabaseId || import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)'
 };
 
-// Import config, but wrap in try-catch to handle missing file during deployment
-let firebaseConfig: any;
-try {
-  // @ts-ignore - file may not exist in some environments
-  const localConfig = await import('../../firebase-applet-config.json');
-  firebaseConfig = localConfig.default || localConfig;
-} catch (e) {
-  firebaseConfig = envConfig;
+// Log warning if config is missing in production
+if (!firebaseConfig.apiKey && import.meta.env.PROD) {
+  console.warn("Firebase API Key is missing. Please check your firebase-applet-config.json or environment variables.");
 }
 
-// Ensure critical values are present
-const finalConfig = {
-  ...firebaseConfig,
-  apiKey: firebaseConfig.apiKey || envConfig.apiKey,
-  authDomain: firebaseConfig.authDomain || envConfig.authDomain,
-  projectId: firebaseConfig.projectId || envConfig.projectId,
-  storageBucket: firebaseConfig.storageBucket || envConfig.storageBucket,
-  messagingSenderId: firebaseConfig.messagingSenderId || envConfig.messagingSenderId,
-  appId: firebaseConfig.appId || envConfig.appId,
-  measurementId: firebaseConfig.measurementId || envConfig.measurementId
-};
-
-const app = initializeApp(finalConfig);
+const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || envConfig.firestoreDatabaseId);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
 export const googleProvider = new GoogleAuthProvider();
 
